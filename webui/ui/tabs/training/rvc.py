@@ -41,7 +41,7 @@ def train_rvc():
 
                     def set_f0(val: list[str]):
                         change_setting('f0', val)
-                        return gradio.update(visible=any(['crepe' in v for v in val]))
+                        return gradio.update(visible=any('crepe' in v for v in val))
 
                     f0_method.change(fn=set_f0, inputs=f0_method, outputs=crepe_hop_length)
                     crepe_hop_length.change(fn=lambda val: change_setting('crepe_hop_length', val), inputs=crepe_hop_length)

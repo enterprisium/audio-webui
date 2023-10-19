@@ -31,8 +31,8 @@ def spectrogram_torch(y, n_fft, sampling_rate, hop_size, win_size, center=False)
 
     # Window - Cache if needed
     global hann_window
-    dtype_device = str(y.dtype) + "_" + str(y.device)
-    wnsize_dtype_device = str(win_size) + "_" + dtype_device
+    dtype_device = f"{str(y.dtype)}_{str(y.device)}"
+    wnsize_dtype_device = f"{str(win_size)}_{dtype_device}"
     if wnsize_dtype_device not in hann_window:
         hann_window[wnsize_dtype_device] = torch.hann_window(win_size).to(
             dtype=y.dtype, device=y.device
@@ -105,7 +105,7 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
         audiopaths_and_text_new = []
         lengths = []
         for audiopath, text, pitch, pitchf, dv in self.audiopaths_and_text:
-            if self.min_text_len <= len(text) and len(text) <= self.max_text_len:
+            if self.min_text_len <= len(text) <= self.max_text_len:
                 audiopaths_and_text_new.append([audiopath, text, pitch, pitchf, dv])
                 lengths.append(os.path.getsize(audiopath) // (2 * self.hop_length))
         self.audiopaths_and_text = audiopaths_and_text_new
@@ -163,9 +163,7 @@ class TextAudioLoaderMultiNSFsid(torch.utils.data.Dataset):
         audio, sampling_rate = load_wav_to_torch(filename)
         if sampling_rate != self.sampling_rate:
             raise ValueError(
-                "{} SR doesn't match target {} SR".format(
-                    sampling_rate, self.sampling_rate
-                )
+                f"{sampling_rate} SR doesn't match target {self.sampling_rate} SR"
             )
         audio_norm = audio
         #        audio_norm = audio / self.max_wav_value
@@ -225,8 +223,8 @@ class TextAudioCollateMultiNSFsid:
             torch.LongTensor([x[0].size(1) for x in batch]), dim=0, descending=True
         )
 
-        max_spec_len = max([x[0].size(1) for x in batch])
-        max_wave_len = max([x[1].size(1) for x in batch])
+        max_spec_len = max(x[0].size(1) for x in batch)
+        max_wave_len = max(x[1].size(1) for x in batch)
         spec_lengths = torch.LongTensor(len(batch))
         wave_lengths = torch.LongTensor(len(batch))
         spec_padded = torch.FloatTensor(len(batch), batch[0][0].size(0), max_spec_len)
@@ -234,7 +232,7 @@ class TextAudioCollateMultiNSFsid:
         spec_padded.zero_()
         wave_padded.zero_()
 
-        max_phone_len = max([x[2].size(0) for x in batch])
+        max_phone_len = max(x[2].size(0) for x in batch)
         phone_lengths = torch.LongTensor(len(batch))
         phone_padded = torch.FloatTensor(
             len(batch), max_phone_len, batch[0][2].shape[1]
@@ -314,7 +312,7 @@ class TextAudioLoader(torch.utils.data.Dataset):
         audiopaths_and_text_new = []
         lengths = []
         for audiopath, text, dv in self.audiopaths_and_text:
-            if self.min_text_len <= len(text) and len(text) <= self.max_text_len:
+            if self.min_text_len <= len(text) <= self.max_text_len:
                 audiopaths_and_text_new.append([audiopath, text, dv])
                 lengths.append(os.path.getsize(audiopath) // (2 * self.hop_length))
         self.audiopaths_and_text = audiopaths_and_text_new
@@ -349,16 +347,13 @@ class TextAudioLoader(torch.utils.data.Dataset):
         phone = np.repeat(phone, 2, axis=0)
         n_num = min(phone.shape[0], 900)  # DistributedBucketSampler
         phone = phone[:n_num, :]
-        phone = torch.FloatTensor(phone)
-        return phone
+        return torch.FloatTensor(phone)
 
     def get_audio(self, filename):
         audio, sampling_rate = load_wav_to_torch(filename)
         if sampling_rate != self.sampling_rate:
             raise ValueError(
-                "{} SR doesn't match target {} SR".format(
-                    sampling_rate, self.sampling_rate
-                )
+                f"{sampling_rate} SR doesn't match target {self.sampling_rate} SR"
             )
         audio_norm = audio
         #        audio_norm = audio / self.max_wav_value
@@ -418,8 +413,8 @@ class TextAudioCollate:
             torch.LongTensor([x[0].size(1) for x in batch]), dim=0, descending=True
         )
 
-        max_spec_len = max([x[0].size(1) for x in batch])
-        max_wave_len = max([x[1].size(1) for x in batch])
+        max_spec_len = max(x[0].size(1) for x in batch)
+        max_wave_len = max(x[1].size(1) for x in batch)
         spec_lengths = torch.LongTensor(len(batch))
         wave_lengths = torch.LongTensor(len(batch))
         spec_padded = torch.FloatTensor(len(batch), batch[0][0].size(0), max_spec_len)
@@ -427,7 +422,7 @@ class TextAudioCollate:
         spec_padded.zero_()
         wave_padded.zero_()
 
-        max_phone_len = max([x[2].size(0) for x in batch])
+        max_phone_len = max(x[2].size(0) for x in batch)
         phone_lengths = torch.LongTensor(len(batch))
         phone_padded = torch.FloatTensor(
             len(batch), max_phone_len, batch[0][2].shape[1]
@@ -505,8 +500,8 @@ class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
                 self.boundaries.pop(i + 1)
 
         num_samples_per_bucket = []
-        for i in range(len(buckets)):
-            len_bucket = len(buckets[i])
+        for bucket in buckets:
+            len_bucket = len(bucket)
             total_batch_size = self.num_replicas * self.batch_size
             rem = (
                 total_batch_size - (len_bucket % total_batch_size)
@@ -520,11 +515,10 @@ class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
         g.manual_seed(self.epoch)
 
         indices = []
-        if self.shuffle:
-            for bucket in self.buckets:
+        for bucket in self.buckets:
+            if self.shuffle:
                 indices.append(torch.randperm(len(bucket), generator=g).tolist())
-        else:
-            for bucket in self.buckets:
+            else:
                 indices.append(list(range(len(bucket))))
 
         batches = []
@@ -569,7 +563,7 @@ class DistributedBucketSampler(torch.utils.data.distributed.DistributedSampler):
 
         if hi > lo:
             mid = (hi + lo) // 2
-            if self.boundaries[mid] < x and x <= self.boundaries[mid + 1]:
+            if self.boundaries[mid] < x <= self.boundaries[mid + 1]:
                 return mid
             elif x <= self.boundaries[mid]:
                 return self._bisect(x, lo, mid)
@@ -615,8 +609,8 @@ def spectrogram_torch(y, n_fft, sampling_rate, hop_size, win_size, center=False)
 
     # Window - Cache if needed
     global hann_window
-    dtype_device = str(y.dtype) + "_" + str(y.device)
-    wnsize_dtype_device = str(win_size) + "_" + dtype_device
+    dtype_device = f"{str(y.dtype)}_{str(y.device)}"
+    wnsize_dtype_device = f"{str(win_size)}_{dtype_device}"
     if wnsize_dtype_device not in hann_window:
         hann_window[wnsize_dtype_device] = torch.hann_window(win_size).to(
             dtype=y.dtype, device=y.device
@@ -652,8 +646,8 @@ def spectrogram_torch(y, n_fft, sampling_rate, hop_size, win_size, center=False)
 def spec_to_mel_torch(spec, n_fft, num_mels, sampling_rate, fmin, fmax):
     # MelBasis - Cache if needed
     global mel_basis
-    dtype_device = str(spec.dtype) + "_" + str(spec.device)
-    fmax_dtype_device = str(fmax) + "_" + dtype_device
+    dtype_device = f"{str(spec.dtype)}_{str(spec.device)}"
+    fmax_dtype_device = f"{str(fmax)}_{dtype_device}"
     if fmax_dtype_device not in mel_basis:
         mel = librosa_mel_fn(
             sr=sampling_rate, n_fft=n_fft, n_mels=num_mels, fmin=fmin, fmax=fmax
@@ -681,7 +675,4 @@ def mel_spectrogram_torch(
     # Linear-frequency Linear-amplitude spectrogram :: (B, T) -> (B, Freq, Frame)
     spec = spectrogram_torch(y, n_fft, sampling_rate, hop_size, win_size, center)
 
-    # Mel-frequency Log-amplitude spectrogram :: (B, Freq, Frame) -> (B, Freq=num_mels, Frame)
-    melspec = spec_to_mel_torch(spec, n_fft, num_mels, sampling_rate, fmin, fmax)
-
-    return melspec
+    return spec_to_mel_torch(spec, n_fft, num_mels, sampling_rate, fmin, fmax)

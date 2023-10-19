@@ -107,8 +107,9 @@ def gen(rvc_model_selected, speaker_id, pitch_extract, audio_in, up_key, index_r
         index_file = ''
         try:
             model_basedir = os.path.join('data', 'models', 'rvc', os.path.dirname(rvc_model_selected))
-            index_files = [f for f in os.listdir(model_basedir) if f.endswith('.index')]
-            if len(index_files) > 0:
+            if index_files := [
+                f for f in os.listdir(model_basedir) if f.endswith('.index')
+            ]:
                 for f in index_files:
                     full_path = os.path.join(model_basedir, f)
                     if 'added' in f:
@@ -162,6 +163,7 @@ def rvc():
 
             def update_audio_input(use_mic):
                 return gradio.update(source='microphone' if use_mic else 'upload')
+
             use_microphone.change(fn=update_audio_input, inputs=use_microphone, outputs=audio_el)
 
             with gradio.Accordion('🗣 RVC'):
@@ -175,7 +177,7 @@ def rvc():
                 crepe_hop_length = gradio.Slider(visible=False, minimum=64, maximum=512, step=64, value=128, label='torchcrepe hop length', info='The length of the hops used for torchcrepe\'s crepe implementation')
 
                 def update_crepe_hop_length_visible(pitch_mode: str):
-                    return gradio.update(visible=any(['crepe' in v for v in pitch_mode]))
+                    return gradio.update(visible=any('crepe' in v for v in pitch_mode))
 
                 pitch_extract.change(fn=update_crepe_hop_length_visible, inputs=pitch_extract, outputs=crepe_hop_length)
 

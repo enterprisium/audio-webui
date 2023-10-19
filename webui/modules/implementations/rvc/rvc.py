@@ -130,10 +130,7 @@ def load_hubert():
         )
         hubert_model = models[0]
         hubert_model = hubert_model.to(config.device)
-        if config.is_half:
-            hubert_model = hubert_model.half()
-        else:
-            hubert_model = hubert_model.float()
+        hubert_model = hubert_model.half() if config.is_half else hubert_model.float()
         hubert_model.eval()
 
 
@@ -248,7 +245,7 @@ def vc_single(
         if resample_sr >= 16000 and tgt_sr != resample_sr:
             tgt_sr = resample_sr
         index_info = (
-            "Using index:%s." % file_index
+            f"Using index:{file_index}."
             if os.path.exists(file_index)
             else "Index not used."
         )
@@ -267,7 +264,7 @@ def vc_single(
 # 一个选项卡全局只能有一个音色
 def get_vc(sid):
     global n_spk, tgt_sr, net_g, vc, cpt, version
-    if sid == "" or sid == []:
+    if sid in ["", []]:
         global hubert_model
         if hubert_model is not None:  # 考虑到轮询, 需要加个判断看是否 sid 是由有模型切换到无模型的
             print("clean_empty_cache")
@@ -297,8 +294,8 @@ def get_vc(sid):
                 torch.cuda.empty_cache()
             cpt = None
         return {"visible": False, "__type__": "update"}
-    person = "%s/%s" % (weight_root, sid)
-    print("loading %s" % person)
+    person = f"{weight_root}/{sid}"
+    print(f"loading {person}")
     cpt = torch.load(person, map_location="cpu")
     tgt_sr = cpt["config"][-1]
     cpt["config"][-3] = cpt["weight"]["emb_g.weight"].shape[0]  # n_spk
@@ -318,10 +315,7 @@ def get_vc(sid):
     del net_g.enc_q
     print(net_g.load_state_dict(cpt["weight"], strict=False))
     net_g.eval().to(config.device)
-    if config.is_half:
-        net_g = net_g.half()
-    else:
-        net_g = net_g.float()
+    net_g = net_g.half() if config.is_half else net_g.float()
     vc = VC(tgt_sr, config)
     n_spk = cpt["config"][-3]
     return {"visible": True, "maximum": n_spk, "__type__": "update"}
@@ -333,7 +327,7 @@ def change_info(path, info, name):
         ckpt["info"] = info
         if name == "":
             name = os.path.basename(path)
-        torch.save(ckpt, "weights/%s" % name)
+        torch.save(ckpt, f"weights/{name}")
         return "Success."
     except:
         return traceback.format_exc()

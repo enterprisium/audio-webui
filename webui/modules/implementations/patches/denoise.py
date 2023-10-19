@@ -17,7 +17,6 @@ def enhance_new(args, in_file, out_file, model=None, local_out_dir=None):
 
     with ProcessPoolExecutor(1) as pool:
         iterator = LogProgress(logger, loader, name="Generate enhanced files")
-        pendings = []
         for data in iterator:
             # Get batch data
             noisy_signals, filenames = data
@@ -28,7 +27,7 @@ def enhance_new(args, in_file, out_file, model=None, local_out_dir=None):
             for estimate, noisy, filename in zip(estimate, noisy_signals, filenames):
                 write(estimate, out_file, sr=model.sample_rate)
 
-        if pendings:
+        if pendings := []:
             print('Waiting for pending jobs...')
             for pending in LogProgress(logger, pendings, updates=5, name="Generate enhanced files"):
                 pending.result()

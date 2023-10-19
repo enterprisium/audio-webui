@@ -8,7 +8,11 @@ from transformers import Pipeline
 
 def choices():
     from .download import model_types
-    return [_type + '/' + model for _type in model_types for model in get_installed_models(_type)]
+    return [
+        f'{_type}/{model}'
+        for _type in model_types
+        for model in get_installed_models(_type)
+    ]
 
 
 def refresh_choices():
@@ -19,10 +23,11 @@ def get_installed_models(model_type):
     _dir = f'data/models/{model_type}'
     if not os.path.isdir(_dir):
         os.mkdir(_dir)
-    found = []
-    for model in [name for name in os.listdir(_dir) if os.path.isdir(os.path.join(_dir, name))]:
-        found.append(model)
-    return found
+    return [
+        name
+        for name in os.listdir(_dir)
+        if os.path.isdir(os.path.join(_dir, name))
+    ]
 
 
 class ModelLoader:
@@ -41,7 +46,7 @@ class ModelLoader:
 
     def unload_model(self):
         del self.pipeline
-        if not self.pipeline.device == 'cpu':
+        if self.pipeline.device != 'cpu':
             torch.cuda.empty_cache()
         gc.collect()
 

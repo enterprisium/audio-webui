@@ -72,39 +72,37 @@ def transcribe(wav, files) -> tuple[tuple[int, torch.Tensor], list[str]]:
 
 def transcribe_wav(wav):
     global model, processor, device, loaded_model
-    if loaded_model is not None:
-        if wav is None:
-            return None
-        sr, wav = wav
-        import traceback
-        try:
-            if sr != 16000:
-                import torchaudio.functional as F
-                wav = F.resample((torch.tensor(wav).to(device).float() / 32767.0).mean(-1).squeeze().unsqueeze(0), sr, 16000).flatten().cpu().detach().numpy()
-                sr = 16000
-            return whisper.transcribe(model, wav)['text'].strip()
-        except Exception as e:
-            traceback.print_exception(e)
-            return f'Exception: {e}'
-    else:
+    if loaded_model is None:
         return 'No model loaded! Please load a model.'
+    if wav is None:
+        return None
+    sr, wav = wav
+    import traceback
+    try:
+        if sr != 16000:
+            import torchaudio.functional as F
+            wav = F.resample((torch.tensor(wav).to(device).float() / 32767.0).mean(-1).squeeze().unsqueeze(0), sr, 16000).flatten().cpu().detach().numpy()
+            sr = 16000
+        return whisper.transcribe(model, wav)['text'].strip()
+    except Exception as e:
+        traceback.print_exception(e)
+        return f'Exception: {e}'
 
 
 def transcribe_files(files: list) -> list[str]:
-    if files is None or len(files) == 0:
+    if files is None or not files:
+        return []
+    global model, processor, device, loaded_model
+    if loaded_model is None:
         return []
     out_list = []
-    global model, processor, device, loaded_model
-    if loaded_model is not None:
-        for f in files:
-            filename = os.path.basename(f.name)
-            print('Processing ', filename)
-            filename_noext, fileext = os.path.splitext(filename)
-            out_file = NamedTemporaryFile(dir=DEFAULT_TEMP_DIR, mode='w', delete=False, suffix='.txt', prefix=filename_noext, encoding='utf8')
+    for f in files:
+        filename = os.path.basename(f.name)
+        print('Processing ', filename)
+        filename_noext, fileext = os.path.splitext(filename)
+        out_file = NamedTemporaryFile(dir=DEFAULT_TEMP_DIR, mode='w', delete=False, suffix='.txt', prefix=filename_noext, encoding='utf8')
 
-            out_file.write(whisper.transcribe(model, f.name)['text'].strip())
+        out_file.write(whisper.transcribe(model, f.name)['text'].strip())
 
-            out_list.append(out_file.name)
-        return out_list
-    else:
-        return []
+        out_list.append(out_file.name)
+    return out_list

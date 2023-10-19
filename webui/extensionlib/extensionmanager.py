@@ -36,16 +36,15 @@ class Extension:
         self.git_dir = os.path.join(self.path, '.git')
         self.update_el = None
         extinfo = os.path.join(self.path, 'extension.json')
-        if os.path.isfile(extinfo):
-            with open(extinfo, 'r', encoding='utf8') as info_file:
-                self.info = json.load(info_file)
-                for k in ['name', 'description', 'author']:
-                    if k not in self.info:
-                        self.info[k] = 'Not provided'
-                if 'tags' not in self.info:
-                    self.info['tags'] = []
-        else:
+        if not os.path.isfile(extinfo):
             raise FileNotFoundError(f'No extension.json file for {ext_name} extension.')
+        with open(extinfo, 'r', encoding='utf8') as info_file:
+            self.info = json.load(info_file)
+            for k in ['name', 'description', 'author']:
+                if k not in self.info:
+                    self.info[k] = 'Not provided'
+            if 'tags' not in self.info:
+                self.info['tags'] = []
 
     def activate(self):
         if self.enabled and os.path.isfile(self.main_file):
@@ -61,9 +60,7 @@ class Extension:
         return []
 
     def get_javascript(self) -> str | bool:
-        if self.enabled and os.path.isfile(self.js_file):
-            return self.js_file
-        return False
+        return self.js_file if self.enabled and os.path.isfile(self.js_file) else False
 
     def set_enabled(self, new):
         self.enabled = new
@@ -82,8 +79,6 @@ class Extension:
         command2 = 'git status -uno'
         command2 = command2 if is_windows() else shlex.split(command2)
         search_string = 'git pull'  # Included in message from git if not up to date
-        neg_search_string = 'Your branch is up to date'
-
         a = subprocess.run(command1, capture_output=True, cwd=self.path)
         if a.returncode != 0:
             return UpdateStatus.no_git
@@ -93,9 +88,13 @@ class Extension:
 
         if search_string in b.stdout:
             return UpdateStatus.outdated
-        if neg_search_string in b.stdout:
-            return UpdateStatus.updated
-        return UpdateStatus.outdated
+        neg_search_string = 'Your branch is up to date'
+
+        return (
+            UpdateStatus.updated
+            if neg_search_string in b.stdout
+            else UpdateStatus.outdated
+        )
 
     def update(self):
         if not os.path.isdir(self.git_dir):
@@ -151,11 +150,11 @@ def init_extensions():
 
 
 def get_scripts() -> list[str]:
-    out = []
-    for script in [e.get_javascript() for e in states.values()]:
-        if script:
-            out.append(script)
-    return out
+    return [
+        script
+        for script in [e.get_javascript() for e in states.values()]
+        if script
+    ]
 
 
 def get_requirements():

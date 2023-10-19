@@ -13,16 +13,13 @@ def get_rms(
 
     axis = -1
     # put our new within-frame axis at the end for now
-    out_strides = y.strides + tuple([y.strides[axis]])
+    out_strides = y.strides + (y.strides[axis], )
     # Reduce the shape on the framing axis
     x_shape_trimmed = list(y.shape)
     x_shape_trimmed[axis] -= frame_length - 1
-    out_shape = tuple(x_shape_trimmed) + tuple([frame_length])
+    out_shape = tuple(x_shape_trimmed) + (frame_length, )
     xw = np.lib.stride_tricks.as_strided(y, shape=out_shape, strides=out_strides)
-    if axis < 0:
-        target_axis = axis - 1
-    else:
-        target_axis = axis + 1
+    target_axis = axis - 1 if axis < 0 else axis + 1
     xw = np.moveaxis(xw, -1, target_axis)
     # Downsample along the target axis
     slices = [slice(None)] * xw.ndim
@@ -49,7 +46,7 @@ class Slicer:
             raise ValueError(
                 "The following condition must be satisfied: min_length >= min_interval >= hop_size"
             )
-        if not max_sil_kept >= hop_size:
+        if max_sil_kept < hop_size:
             raise ValueError(
                 "The following condition must be satisfied: max_sil_kept >= hop_size"
             )
@@ -73,10 +70,7 @@ class Slicer:
 
     # @timeit
     def slice(self, waveform):
-        if len(waveform.shape) > 1:
-            samples = waveform.mean(axis=0)
-        else:
-            samples = waveform
+        samples = waveform.mean(axis=0) if len(waveform.shape) > 1 else waveform
         if samples.shape[0] <= self.min_length:
             return [waveform]
         rms_list = get_rms(
@@ -161,22 +155,20 @@ class Slicer:
             silence_end = min(total_frames, silence_start + self.max_sil_kept)
             pos = rms_list[silence_start : silence_end + 1].argmin() + silence_start
             sil_tags.append((pos, total_frames + 1))
-        # Apply and return slices.
-        if len(sil_tags) == 0:
+        if not sil_tags:
             return [waveform]
-        else:
-            chunks = []
-            if sil_tags[0][0] > 0:
-                chunks.append(self._apply_slice(waveform, 0, sil_tags[0][0]))
-            for i in range(len(sil_tags) - 1):
-                chunks.append(
-                    self._apply_slice(waveform, sil_tags[i][1], sil_tags[i + 1][0])
-                )
-            if sil_tags[-1][1] < total_frames:
-                chunks.append(
-                    self._apply_slice(waveform, sil_tags[-1][1], total_frames)
-                )
-            return chunks
+        chunks = []
+        if sil_tags[0][0] > 0:
+            chunks.append(self._apply_slice(waveform, 0, sil_tags[0][0]))
+        chunks.extend(
+            self._apply_slice(waveform, sil_tags[i][1], sil_tags[i + 1][0])
+            for i in range(len(sil_tags) - 1)
+        )
+        if sil_tags[-1][1] < total_frames:
+            chunks.append(
+                self._apply_slice(waveform, sil_tags[-1][1], total_frames)
+            )
+        return chunks
 
 
 def main():
@@ -248,8 +240,15 @@ def main():
         soundfile.write(
             os.path.join(
                 out,
-                f"%s_%d.wav"
-                % (os.path.basename(args.audio).rsplit(".", maxsplit=1)[0], i),
+                (
+                    "%s_%d.wav"
+                    % (
+                        os.path.basename(args.audio).rsplit(".", maxsplit=1)[
+                            0
+                        ],
+                        i,
+                    )
+                ),
             ),
             chunk,
             sr,

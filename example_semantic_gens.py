@@ -32,8 +32,8 @@ def shuffle_split(size):
 
 def random(count):
     import random
-    return [random.randint(0, max_token-1) for i in range(count)]
+    return [random.randint(0, max_token-1) for _ in range(count)]
 
 
 def random_chunks(count, size):
-    return [random(size) for i in range(count)]
+    return [random(size) for _ in range(count)]
