@@ -78,19 +78,11 @@ def norm_write(tmp_audio, gt_wavs_dir, wavs16k_dir, name, sr, max, alpha):
     tmp_audio = (tmp_audio / np.abs(tmp_audio).max() * (max * alpha)) + (
             1 - alpha
     ) * tmp_audio
-    wavfile.write(
-        "%s/%s.wav" % (gt_wavs_dir, name),
-        sr,
-        tmp_audio.astype(np.float32),
-    )
+    wavfile.write(f"{gt_wavs_dir}/{name}.wav", sr, tmp_audio.astype(np.float32))
     tmp_audio = librosa.resample(
         tmp_audio, orig_sr=sr, target_sr=16000
     )  # , res_type="soxr_vhq"
-    wavfile.write(
-        "%s/%s.wav" % (wavs16k_dir, name),
-        16000,
-        tmp_audio.astype(np.float32),
-    )
+    wavfile.write(f"{wavs16k_dir}/{name}.wav", 16000, tmp_audio.astype(np.float32))
 
 
 def readwave(wav_path, normalize=False):
@@ -146,8 +138,6 @@ def process_dataset():
     for f in [dataset] if os.path.isfile(dataset) else os.listdir(dataset):
         split = os.path.splitext(f)
         filename = split[0]
-        if split[-1] in ['.wav', '.mp3']:
-            pass
         output += f'\nProcessing {f}'
         yield output
         full_path = os.path.join(dataset, f)
@@ -200,9 +190,6 @@ def pitch_extract():
     space_path = current_workspace.space_path
     f0_method = data['f0']
 
-    sr = 16_000
-    hop = 160
-    f0_bin = 256
     f0_max = 1100.0
     f0_min = 50.0
     f0_mel_min = 1127 * np.log(1 + f0_min / 700)
@@ -225,6 +212,9 @@ def pitch_extract():
     yield output
 
     if f0_method != 'none':
+        sr = 16_000
+        hop = 160
+        f0_bin = 256
         for i, f in enumerate(os.listdir(input_dir)):
             try:
                 full_path = os.path.join(input_dir, f)

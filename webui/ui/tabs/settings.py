@@ -66,7 +66,7 @@ class BarkMix(CustomSetting):
                 raise ValueError(
                     f'An unknown model was specified for --bark-models-mix, Available models: {list(self.valid_models.keys())}')
             selected_models.append(self.valid_models[char])
-        return {key: value for key, value in zip(self.model_indexes, selected_models)}
+        return dict(zip(self.model_indexes, selected_models))
 
     def save_val(self):
         return ':'.join([self.value[idx]['name'] for idx in self.model_indexes])
@@ -127,15 +127,11 @@ config_path = os.path.join('data', 'config.json')
 
 def get(name):
     val = config[name]['value']
-    if isinstance(val, CustomSetting):
-        return val.value
-    return val
+    return val.value if isinstance(val, CustomSetting) else val
 
 
 def auto_value(val):
-    if hasattr(val, 'save_val'):
-        return val.save_val()
-    return val
+    return val.save_val() if hasattr(val, 'save_val') else val
 
 
 def save_config():
@@ -185,9 +181,11 @@ def ui_for_setting(name, setting):
         case 'bool':
             return gradio.Checkbox(**withinfo)
         case 'int' | 'float':
-            num_type = 'number'
-            if 'num_type' in setting.keys():
-                num_type = setting['num_type']
+            num_type = (
+                setting['num_type']
+                if 'num_type' in setting.keys()
+                else 'number'
+            )
             step_val = setting.get('step', 1 if typename == 'int' else None)
             match num_type:
                 case 'number':
@@ -200,9 +198,15 @@ def ui_for_setting(name, setting):
                 list_type = setting['list_type']
             match list_type:
                 case 'dropdown':
-                    return gradio.Dropdown(choices=setting['choices'], multiselect=True, **withinfo)
+                    return gradio.Dropdown(
+                        choices=setting['choices'],
+                        multiselect=True,
+                        **withinfo,
+                    )
                 case 'checkbox':
-                    return gradio.CheckboxGroup(choices=setting['choices'], **withinfo)
+                    return gradio.CheckboxGroup(
+                        choices=setting['choices'], **withinfo
+                    )
         case 'str':
             if 'choices' in setting.keys():
                 list_type = 'dropdown'
@@ -210,9 +214,13 @@ def ui_for_setting(name, setting):
                     list_type = setting['list_type']
                 match list_type:
                     case 'dropdown':
-                        return gradio.Dropdown(choices=setting['choices'], **withinfo)
+                        return gradio.Dropdown(
+                            choices=setting['choices'], **withinfo
+                        )
                     case 'radio':
-                        return gradio.Radio(choices=setting['choices'], **withinfo)
+                        return gradio.Radio(
+                            choices=setting['choices'], **withinfo
+                        )
             return gradio.Textbox(**withinfo)
 
     raise NotImplementedError('Setting type not implemented! Create a new setting type by extending CustomSetting.')
@@ -323,30 +331,30 @@ def list_all_extensions():
         l.append(gradio.update(visible=True, value=val))
 
     def check_for_updates():
-        if em.git_ready():
-            out_list = []
-            for e in em.states.values():
-                update_status = e.check_updates()
-                match update_status:
-                    case em.UpdateStatus.no_git:
-                        if e.extname in updatelist:
-                            updatelist.remove(e.extname)
-                        quick_update_return('Git not installed', out_list)
-                    case em.UpdateStatus.updated:
-                        if e.extname in updatelist:
-                            updatelist.remove(e.extname)
-                        quick_update_return('Up to date', out_list)
-                    case em.UpdateStatus.unmanaged:
-                        if e.extname in updatelist:
-                            updatelist.remove(e.extname)
-                        quick_update_return('I had an issue with git', out_list)
-                    case em.UpdateStatus.outdated:
-                        if e.extname not in updatelist:
-                            updatelist.append(e.extname)
-                        quick_update_return(True, out_list)
-            return out_list
+        if not em.git_ready():
+            return quick_update_return('Git not installed') * len(em.states)
 
-        return quick_update_return('Git not installed') * len(em.states)
+        out_list = []
+        for e in em.states.values():
+            update_status = e.check_updates()
+            match update_status:
+                case em.UpdateStatus.no_git:
+                    if e.extname in updatelist:
+                        updatelist.remove(e.extname)
+                    quick_update_return('Git not installed', out_list)
+                case em.UpdateStatus.updated:
+                    if e.extname in updatelist:
+                        updatelist.remove(e.extname)
+                    quick_update_return('Up to date', out_list)
+                case em.UpdateStatus.unmanaged:
+                    if e.extname in updatelist:
+                        updatelist.remove(e.extname)
+                    quick_update_return('I had an issue with git', out_list)
+                case em.UpdateStatus.outdated:
+                    if e.extname not in updatelist:
+                        updatelist.append(e.extname)
+                    quick_update_return(True, out_list)
+        return out_list
 
     all_els = []
     for e in em.states.values():
@@ -371,7 +379,10 @@ def install_extensions_tab():
         command = command if is_windows() else shlex.split(command)
         out = subprocess.run(command, cwd=os.path.abspath(em.ext_folder))
         if out.returncode != 0:
-            return '', f'Something went wrong with installing! Check output in console for details.'
+            return (
+                '',
+                'Something went wrong with installing! Check output in console for details.',
+            )
         return '', f'Installed {url} (Not checked if successful, check console for status)'
 
     with gradio.Row():

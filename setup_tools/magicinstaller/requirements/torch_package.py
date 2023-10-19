@@ -3,8 +3,7 @@ from setup_tools.magicinstaller.requirement import Requirement
 
 class Torch(Requirement):
     def is_right_version(self):
-        ver = self.get_package_version('torch')
-        if ver:
+        if ver := self.get_package_version('torch'):
             # Check if a CUDA version is installed
             return ver.startswith('2') and ('+cu' in ver if self.is_windows() else True)
         return False

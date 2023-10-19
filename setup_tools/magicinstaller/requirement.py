@@ -88,11 +88,8 @@ class Requirement:
         args = args if self.is_windows() else shlex.split(args)
         result = subprocess.run(args, capture_output=True, text=True)
         test_str = result.stdout
-        out_list = []
         matches = re.finditer('^(.*)(?:==| @ )(.+)$', test_str, re.MULTILINE)
-        for match in matches:
-            out_list.append((match.group(1), match.group(2)))
-
+        out_list = [(match.group(1), match.group(2)) for match in matches]
         valid_last = out_list
         return out_list
 
@@ -100,10 +97,14 @@ class Requirement:
     def get_package_version(self, name: str, freeze: dict[tuple[str, str]] | None = None) -> bool | str:
         if freeze is None:
             freeze = self.pip_freeze()
-        for p_name, version in freeze:
-            if name.casefold() == p_name.casefold():
-                return version
-        return False
+        return next(
+            (
+                version
+                for p_name, version in freeze
+                if name.casefold() == p_name.casefold()
+            ),
+            False,
+        )
 
 
 class SimpleRequirement(Requirement):

@@ -9,7 +9,7 @@ def parse_requirements(req_file='install_requirements.txt'):
 
     requirements_parsed = []
     with open(req_file, 'r') as file:
-        for line in file.readlines():
+        for line in file:
             line = line.strip()
 
             # Make sure it can be unpacked
@@ -20,8 +20,7 @@ def parse_requirements(req_file='install_requirements.txt'):
             packages, args, condition = line.split(';')[:3]
             if not condition or eval(condition):
                 for package in packages.split(' '):
-                    package = package.strip()
-                    if package:
+                    if package := package.strip():
                         requirements_parsed.append(f'{package} {args}')
     return requirements_parsed
 

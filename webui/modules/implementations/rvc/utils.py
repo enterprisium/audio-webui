@@ -76,7 +76,7 @@ def savee(ckpt, sr, if_f0, name, epoch, version):
                 256,
                 32000,
             ]
-        opt["info"] = "%sepoch" % epoch
+        opt["info"] = f"{epoch}epoch"
         opt["sr"] = sr
         opt["f0"] = if_f0
         opt["version"] = version
@@ -119,9 +119,8 @@ def load_checkpoint(checkpoint_path, model, optimizer=None, load_opt=1):
             new_state_dict[k] = saved_state_dict[k]
             if saved_state_dict[k].shape != state_dict[k].shape:
                 print(
-                    "shape-%s-mismatch|need-%s|get-%s"
-                    % (k, state_dict[k].shape, saved_state_dict[k].shape)
-                )  #
+                    f"shape-{k}-mismatch|need-{state_dict[k].shape}|get-{saved_state_dict[k].shape}"
+                )
                 raise KeyError
         except:
             # logger.info(traceback.format_exc())

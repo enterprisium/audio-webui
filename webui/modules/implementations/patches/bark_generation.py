@@ -25,10 +25,8 @@ SUPPORTED_LANGS = [
 ALLOWED_PROMPTS = ["announcer"]
 for _, lang in SUPPORTED_LANGS:
     for prefix in ("", f"v2{os.path.sep}"):
-        for n in range(10):
-            ALLOWED_PROMPTS.append(f"{prefix}{lang}_speaker_{n}")
-for n in range(10):
-    ALLOWED_PROMPTS.append(f"speaker_{n}")
+        ALLOWED_PROMPTS.extend(f"{prefix}{lang}_speaker_{n}" for n in range(10))
+ALLOWED_PROMPTS.extend(f"speaker_{n}" for n in range(10))
 
 
 def generate_text_semantic_new(
@@ -54,19 +52,18 @@ def generate_text_semantic_new(
             semantic_history = history_prompt['semantic_prompt']
         elif history_prompt.endswith(".npz"):
             semantic_history = np.load(history_prompt)["semantic_prompt"]
+        elif history_prompt in ALLOWED_PROMPTS:
+            semantic_history = np.load(
+                os.path.join(CUR_PATH, "assets", "prompts", f"{history_prompt}.npz")
+            )["semantic_prompt"]
         else:
-            if history_prompt in ALLOWED_PROMPTS:
+            filename = f'data/bark_custom_speakers/{history_prompt}.npz'
+            if os.path.isfile(filename):
                 semantic_history = np.load(
-                    os.path.join(CUR_PATH, "assets", "prompts", f"{history_prompt}.npz")
+                    filename
                 )["semantic_prompt"]
             else:
-                filename = f'data/bark_custom_speakers/{history_prompt}.npz'
-                if os.path.isfile(filename):
-                    semantic_history = np.load(
-                        filename
-                    )["semantic_prompt"]
-                else:
-                    skip = True
+                skip = True
         if not skip:
             assert (
                     isinstance(semantic_history, np.ndarray)
@@ -128,10 +125,7 @@ def generate_text_semantic_new(
         tot_generated_duration_s = 0
         kv_cache = None
         for n in range(n_tot_steps):
-            if use_kv_caching and kv_cache is not None:
-                x_input = x[:, [-1]]
-            else:
-                x_input = x
+            x_input = x[:, [-1]] if use_kv_caching and kv_cache is not None else x
             logits, kv_cache = model(
                 x_input, merge_context=True, use_cache=use_kv_caching, past_kv=kv_cache
             )
@@ -193,7 +187,7 @@ def generate_text_semantic_new(
         out = x.detach().cpu().numpy().squeeze()[256 + 256 + 1:]
     if settings.get('bark_offload_cpu'):
         model.to("cpu")
-    assert all(0 <= out) and all(out < SEMANTIC_VOCAB_SIZE)
+    assert all(out >= 0) and all(out < SEMANTIC_VOCAB_SIZE)
     o._clear_cuda_cache()
     return out
 
@@ -228,19 +222,18 @@ def generate_coarse_new(
             x_history = history_prompt
         elif history_prompt.endswith(".npz"):
             x_history = np.load(history_prompt)
+        elif history_prompt in ALLOWED_PROMPTS:
+            x_history = np.load(
+                os.path.join(CUR_PATH, "assets", "prompts", f"{history_prompt}.npz")
+            )
         else:
-            if history_prompt in ALLOWED_PROMPTS:
+            filename = f'data/bark_custom_speakers/{history_prompt}.npz'
+            if os.path.isfile(filename):
                 x_history = np.load(
-                    os.path.join(CUR_PATH, "assets", "prompts", f"{history_prompt}.npz")
+                    filename
                 )
             else:
-                filename = f'data/bark_custom_speakers/{history_prompt}.npz'
-                if os.path.isfile(filename):
-                    x_history = np.load(
-                        filename
-                    )
-                else:
-                    skip = True
+                skip = True
         if not skip:
             x_semantic_history = x_history["semantic_prompt"]
             x_coarse_history = x_history["coarse_prompt"]
@@ -303,7 +296,7 @@ def generate_coarse_new(
         x_coarse_in = torch.from_numpy(x_coarse)[None].to(device)
         n_window_steps = int(np.ceil(n_steps / sliding_window_len))
         n_step = 0
-        for curr_step in tqdm.tqdm(range(n_window_steps), total=n_window_steps, disable=silent, desc='Generating coarse audio...'):
+        for _ in tqdm.tqdm(range(n_window_steps), total=n_window_steps, disable=silent, desc='Generating coarse audio...'):
             semantic_idx = base_semantic_idx + int(round(n_step / semantic_to_coarse_ratio))
             # pad from right side
             x_in = x_semantic_in[:, np.max([0, semantic_idx - max_semantic_history]):]
@@ -327,11 +320,7 @@ def generate_coarse_new(
                     continue
                 is_major_step = n_step % N_COARSE_CODEBOOKS == 0
 
-                if use_kv_caching and kv_cache is not None:
-                    x_input = x_in[:, [-1]]
-                else:
-                    x_input = x_in
-
+                x_input = x_in[:, [-1]] if use_kv_caching and kv_cache is not None else x_in
                 logits, kv_cache = model(x_input, use_cache=use_kv_caching, past_kv=kv_cache)
                 logit_start_idx = (
                         SEMANTIC_VOCAB_SIZE + (1 - int(is_major_step)) * CODEBOOK_SIZE

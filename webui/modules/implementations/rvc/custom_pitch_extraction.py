@@ -49,8 +49,7 @@ def get_f0_crepe_computation(
         np.arange(0, len(source)),
         source
     )
-    f0 = np.nan_to_num(target)
-    return f0  # Resized f0
+    return np.nan_to_num(target)
 
 
 def get_mangio_crepe_f0(x, f0_min, f0_max, p_len, sr, crepe_hop_length, model='full'):
@@ -58,9 +57,9 @@ def get_mangio_crepe_f0(x, f0_min, f0_max, p_len, sr, crepe_hop_length, model='f
     # print("CREPE PITCH EXTRACTION HOP LENGTH: " + str(crepe_hop_length))
     x = x.astype(np.float32)
     x /= np.quantile(np.abs(x), 0.999)
-    torch_device_index = 0
     torch_device = None
     if torch.cuda.is_available():
+        torch_device_index = 0
         torch_device = torch.device(f"cuda:{torch_device_index % torch.cuda.device_count()}")
     elif torch.backends.mps.is_available():
         torch_device = torch.device("mps")

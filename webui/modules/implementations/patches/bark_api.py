@@ -29,7 +29,7 @@ def text_to_semantic_new(
     Returns:
         numpy semantic array to be fed into `semantic_to_waveform`
     """
-    x_semantic = generate_text_semantic_new(
+    return generate_text_semantic_new(
         text,
         history_prompt=history_prompt,
         temp=temp,
@@ -37,9 +37,8 @@ def text_to_semantic_new(
         use_kv_caching=True,
         allow_early_stop=allow_early_stop,
         min_eos_p=min_eos_p,
-        progress=progress
+        progress=progress,
     )
-    return x_semantic
 
 
 def semantic_to_waveform_new(
@@ -107,7 +106,7 @@ def strict_split(string: str, regex='([.,:;!?\\n])'):
             last += split
             splits_out.append(last)
 
-    if len(splits_out) == 0 or not splits_out[-1] == last:
+    if not splits_out or splits_out[-1] != last:
         splits_out.append(last)
 
     return splits_out
@@ -193,7 +192,7 @@ def generate_audio_new(
         numpy audio array at sample frequency 24khz
     """
     if gen_prefix:
-        gen_prefix = gen_prefix + ' '
+        gen_prefix += ' '
 
     silence = np.zeros(int(long_gen_silence_secs * SAMPLE_RATE))
     gen_audio = []
@@ -243,6 +242,4 @@ def generate_audio_new(
 
     gen_audio = np.concatenate(gen_audio)
 
-    if output_full:
-        return full_generation, gen_audio
-    return gen_audio
+    return (full_generation, gen_audio) if output_full else gen_audio

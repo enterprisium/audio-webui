@@ -27,9 +27,11 @@ class BarkTTS(mod.TTSModelLoader):
         found_prompts = []
         base_path = 'data/bark_custom_speakers/'
         for path, subdirs, files in os.walk(base_path):
-            for name in files:
-                if name.endswith('.npz'):
-                    found_prompts.append(os.path.join(path, name)[len(base_path):-4])
+            found_prompts.extend(
+                os.path.join(path, name)[len(base_path) : -4]
+                for name in files
+                if name.endswith('.npz')
+            )
         from webui.modules.implementations.patches.bark_generation import ALLOWED_PROMPTS
         return ['None'] + found_prompts + ALLOWED_PROMPTS
 
@@ -197,8 +199,8 @@ class BarkTTS(mod.TTSModelLoader):
 
     def get_response(self, *inputs, progress=gradio.Progress()):
         textbox, gen_prefix, audio_upload, input_type, mode, text_temp, waveform_temp, speaker,\
-            speaker_name, speaker_file, refresh_speakers, keep_generating, clone_guide, min_eos_p, clone_model,\
-            input_lang_model, npz_file, split_type = inputs
+                speaker_name, speaker_file, refresh_speakers, keep_generating, clone_guide, min_eos_p, clone_model,\
+                input_lang_model, npz_file, split_type = inputs
         _speaker = None
         if mode == 'File':
             _speaker = speaker if speaker != 'None' else None
@@ -206,7 +208,9 @@ class BarkTTS(mod.TTSModelLoader):
             speaker_sr, speaker_wav = speaker_file
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.wav')
             if speaker_name:
-                temp_file.name = os.path.join(os.path.dirname(temp_file.name), speaker_name + '.wav')
+                temp_file.name = os.path.join(
+                    os.path.dirname(temp_file.name), f'{speaker_name}.wav'
+                )
             scipy.io.wavfile.write(temp_file.name, speaker_sr, speaker_wav)
             _speaker = self.create_voice(temp_file.name, clone_model)
         elif mode == 'Upload .npz':
@@ -219,7 +223,7 @@ class BarkTTS(mod.TTSModelLoader):
                                                        gen_prefix=gen_prefix, progress=progress, split_type=split_type)
         else:
             input_lang_model_obj = \
-            [model for model in hubert_models_cache if model['name'].casefold() == input_lang_model.casefold()][0]
+                [model for model in hubert_models_cache if model['name'].casefold() == input_lang_model.casefold()][0]
             semantics = wav_to_semantics(audio_upload.name, input_lang_model_obj).numpy()
             history_prompt, audio = semantic_to_waveform_new(semantics, _speaker, waveform_temp, output_full=True,
                                                              progress=progress)
@@ -329,7 +333,12 @@ class CoquiTTS(mod.TTSModelLoader):
                 gc.collect()
                 torch.cuda.empty_cache()
             self.current_model_name = selected_tts
-            self.current_model = TTS(selected_tts, gpu=True if torch.cuda.is_available() and settings.get('tts_use_gpu') else False)
+            self.current_model = TTS(
+                selected_tts,
+                gpu=bool(
+                    torch.cuda.is_available() and settings.get('tts_use_gpu')
+                ),
+            )
         audio = np.array(self.current_model.tts(text_input, speaker_tts if self.current_model.is_multi_speaker else None, lang_tts if self.current_model.is_multi_lingual else None))
         audio_tuple = (self.current_model.synthesizer.output_sample_rate, audio)
         return audio_tuple, None
@@ -366,7 +375,4 @@ def all_elements(in_dict):
 
 
 def all_elements_dict():
-    d = {}
-    for tts in all_tts():
-        d[tts.model] = tts.gradio_components()
-    return d
+    return {tts.model: tts.gradio_components() for tts in all_tts()}

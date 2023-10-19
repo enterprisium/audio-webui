@@ -28,19 +28,17 @@ def get_throttling_function_name(js: str) -> str:
     ]
     for pattern in function_patterns:
         regex = re.compile(pattern)
-        function_match = regex.search(js)
-        if function_match:
+        if function_match := regex.search(js):
             if len(function_match.groups()) == 1:
                 return function_match.group(1)
-            idx = function_match.group(2)
-            if idx:
+            if idx := function_match.group(2):
                 idx = idx.strip("[]")
-                array = re.search(
+                if array := re.search(
                     r'var {nfunc}\s*=\s*(\[.+?\]);'.format(
-                        nfunc=re.escape(function_match.group(1))),
-                    js
-                )
-                if array:
+                        nfunc=re.escape(function_match.group(1))
+                    ),
+                    js,
+                ):
                     array = array.group(1).strip("[]").split(",")
                     array = [x.strip() for x in array]
                     return array[int(idx)]

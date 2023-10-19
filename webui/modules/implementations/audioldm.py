@@ -53,8 +53,7 @@ def score_waveforms(text, waveforms):
         logits_per_text = clap_model(**inputs).logits_per_text  # this is the audio-text similarity score
         probs = logits_per_text.softmax(dim=-1)  # we can take the softmax to get the label probabilities
         most_probable = torch.argmax(probs)  # and now select the most likely audio waveform
-    waveform = waveforms[most_probable]
-    return waveform
+    return waveforms[most_probable]
 
 
 def generate(prompt='', negative_prompt='', steps=10, duration=5.0, cfg=2.5, seed=-1, wav_best_count=1, enhance=False, callback=None):

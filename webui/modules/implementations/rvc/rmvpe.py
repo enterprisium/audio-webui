@@ -51,7 +51,7 @@ class Encoder(nn.Module):
         self.bn = nn.BatchNorm2d(in_channels, momentum=momentum)
         self.layers = nn.ModuleList()
         self.latent_channels = []
-        for i in range(self.n_encoders):
+        for _ in range(self.n_encoders):
             self.layers.append(ResEncoderBlock(in_channels, out_channels, kernel_size, n_blocks, momentum=momentum))
             self.latent_channels.append([out_channels, in_size])
             in_channels = out_channels
@@ -73,7 +73,7 @@ class ResEncoderBlock(nn.Module):
         self.n_blocks = n_blocks
         self.conv = nn.ModuleList()
         self.conv.append(ConvBlockRes(in_channels, out_channels, momentum))
-        for i in range(n_blocks - 1):
+        for _ in range(n_blocks - 1):
             self.conv.append(ConvBlockRes(out_channels, out_channels, momentum))
         self.kernel_size = kernel_size
         if self.kernel_size is not None:
@@ -82,17 +82,14 @@ class ResEncoderBlock(nn.Module):
     def forward(self, x):
         for i in range(self.n_blocks):
             x = self.conv[i](x)
-        if self.kernel_size is not None:
-            return x, self.pool(x)
-        else:
-            return x
+        return (x, self.pool(x)) if self.kernel_size is not None else x
 class Intermediate(nn.Module):#
     def __init__(self, in_channels, out_channels, n_inters, n_blocks, momentum=0.01):
         super(Intermediate, self).__init__()
         self.n_inters = n_inters
         self.layers = nn.ModuleList()
         self.layers.append(ResEncoderBlock(in_channels, out_channels, None, n_blocks, momentum))
-        for i in range(self.n_inters-1):
+        for _ in range(self.n_inters-1):
             self.layers.append(ResEncoderBlock(out_channels, out_channels, None, n_blocks, momentum))
 
     def forward(self, x):
@@ -117,7 +114,7 @@ class ResDecoderBlock(nn.Module):
         )
         self.conv2 = nn.ModuleList()
         self.conv2.append(ConvBlockRes(out_channels * 2, out_channels, momentum))
-        for i in range(n_blocks-1):
+        for _ in range(n_blocks-1):
             self.conv2.append(ConvBlockRes(out_channels, out_channels, momentum))
 
     def forward(self, x, concat_tensor):
@@ -131,7 +128,7 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         self.layers = nn.ModuleList()
         self.n_decoders = n_decoders
-        for i in range(self.n_decoders):
+        for _ in range(self.n_decoders):
             out_channels = in_channels // 2
             self.layers.append(ResDecoderBlock(in_channels, out_channels, stride, n_blocks, momentum))
             in_channels = out_channels
@@ -218,7 +215,7 @@ class MelSpectrogram(torch.nn.Module):
         n_fft_new = int(np.round(self.n_fft * factor))
         win_length_new = int(np.round(self.win_length * factor))
         hop_length_new = int(np.round(self.hop_length * speed))
-        keyshift_key = str(keyshift) + '_' + str(audio.device)
+        keyshift_key = f'{str(keyshift)}_{str(audio.device)}'
         if keyshift_key not in self.hann_window:
             self.hann_window[keyshift_key] = torch.hann_window(win_length_new).to(audio.device)
         fft = torch.stft(
@@ -238,8 +235,7 @@ class MelSpectrogram(torch.nn.Module):
             magnitude = magnitude[:, :size, :]* self.win_length / win_length_new
         mel_output = torch.matmul(self.mel_basis, magnitude)
         if(self.is_half==True):mel_output=mel_output.half()
-        log_mel_spec = torch.log(torch.clamp(mel_output, min=self.clamp))
-        return log_mel_spec
+        return torch.log(torch.clamp(mel_output, min=self.clamp))
 
 
 
@@ -288,11 +284,7 @@ class RMVPE:
         # t2=ttime()
         hidden=hidden.squeeze(0).cpu().numpy()
         if(self.is_half==True):hidden=hidden.astype("float32")
-        f0 = self.decode(hidden, thred=thred)
-        # torch.cuda.synchronize()
-        # t3=ttime()
-        # print("hmvpe:%s\t%s\t%s\t%s"%(t1-t0,t2-t1,t3-t2,t3-t0))
-        return f0
+        return self.decode(hidden, thred=thred)
 
     def to_local_average_cents(self,salience, thred=0.05):
         # t0 = ttime()

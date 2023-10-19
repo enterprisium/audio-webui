@@ -38,9 +38,7 @@ callbacks: list[CallBackManager] = []
 def get_manager(name) -> CallBackManager | None:
     """Get a callback manager by its registered name. (case insensitive)"""
     matches = [callback for callback in callbacks if callback.name.casefold() == name.casefold()]
-    if len(matches) == 0:
-        return register_new(name)
-    return matches[0]
+    return register_new(name) if not matches else matches[0]
 
 
 def register_by_name(name: str, callback, priority: int = 0) -> CallBack | None:
@@ -56,9 +54,7 @@ def register_by_name(name: str, callback, priority: int = 0) -> CallBack | None:
 def unregister_by_name(name: str, callback: CallBack) -> bool:
     """Unregister a callback based on its name."""
     manager = get_manager(name)
-    if not manager:
-        return False
-    return manager.unregister(callback)
+    return False if not manager else manager.unregister(callback)
 
 
 def register_new(name: str) -> CallBackManager:

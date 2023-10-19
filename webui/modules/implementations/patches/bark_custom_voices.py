@@ -58,8 +58,7 @@ def wav_to_semantics(file, clone_model) -> torch.Tensor:
     print('Extracting semantics')
     semantics = huberts['hubert'].forward(wav, input_sample_hz=sr)
     print('Tokenizing semantics')
-    tokens = huberts['tokenizer'].get_token(semantics)
-    return tokens
+    return huberts['tokenizer'].get_token(semantics)
 
 
 def eval_semantics(code):
